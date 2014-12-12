@@ -1,26 +1,31 @@
 digraph {
         #rankdir=RL;
-        edge [dir=back];
+        #edge [dir=back];
         node [shape=box, style=rounded];
 
-        subgraph Lazik {
-                 subgraph main {
+        subgraph cluster_Lazik {
+                 subgraph cluster_main {
                           label = "Beaglebone";
+                          driver [label="Motors driver"];
+                          client -> driver [label="unix socket"];
                           client [label="Protocol client"];
                  }
+
+                 motor [label="Motor controller"];
+                 driver -> motor [label="TWI/CAN/SPI"];
                  transmitter [label="Analog transmitter"];
         }
 
-        subgraph Groundstation {
+        subgraph cluster_Groundstation {
                  label = "ground station";
-                 server [label="Protocol server"];
+                 server [label="Protocol server + logic"];
                  ui [label="User interface"];
                  receiver [label="Analog receiver"];
                  videoproxy [label="Video proxy"];
 
                  receiver -> videoproxy [label="USB 'easycap'"];
                  videoproxy -> ui [label="TCP/IP"];
-                 server -> ui [label="TCP/IO"];
+                 server -> ui [label="TCP/IP"];
         }
 
         client -> server [label="wifi 2.4GHz"];
