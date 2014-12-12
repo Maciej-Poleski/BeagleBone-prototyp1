@@ -1,0 +1,29 @@
+digraph {
+        #rankdir=RL;
+        edge [dir=back];
+        node [shape=box, style=rounded];
+
+        subgraph Lazik {
+                 subgraph main {
+                          label = "Beaglebone";
+                          client [label="Protocol client"];
+                 }
+                 transmitter [label="Analog transmitter"];
+        }
+
+        subgraph Groundstation {
+                 label = "ground station";
+                 server [label="Protocol server"];
+                 ui [label="User interface"];
+                 receiver [label="Analog receiver"];
+                 videoproxy [label="Video proxy"];
+
+                 receiver -> videoproxy [label="USB 'easycap'"];
+                 videoproxy -> ui [label="TCP/IP"];
+                 server -> ui [label="TCP/IO"];
+        }
+
+        client -> server [label="wifi 2.4GHz"];
+        client -> server [label="sub 1GHz"];
+        transmitter -> receiver [label="900MHz"];
+}
