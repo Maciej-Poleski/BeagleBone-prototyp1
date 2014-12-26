@@ -7,7 +7,7 @@
 
 namespace asio = boost::asio;
 
-constexpr std::uint16_t portNumber=1234;
+constexpr std::uint16_t portNumber = 1234;
 
 /**
  * Mogą istnieć różne kanały. Każdy może transmitować done o określonym
@@ -18,62 +18,65 @@ constexpr std::uint16_t portNumber=1234;
  * transmitować. Tutaj będzie również mechanizm przełączania kanałów.
  */
 asio::ip::tcp::socket getBaseStationStream(
-    asio::io_service& io_service,
+    asio::io_service &io_service,
     asio::yield_context yield)
 {
     using namespace asio::ip;
-    tcp::endpoint e(tcp::v4(),portNumber);
-    tcp::acceptor acc(io_service,e);
+    tcp::endpoint e(tcp::v4(), portNumber);
+    tcp::acceptor acc(io_service, e);
 
     tcp::socket result(io_service);
-    acc.async_accept(result,yield);
+    acc.async_accept(result, yield);
     return std::move(result);
 }
 
 /**
  * Szablon...
  */
-void handleNextData(asio::ip::tcp::socket& incomingStream, asio::yield_context yield)
+void handleNextData(asio::ip::tcp::socket &incomingStream, asio::yield_context yield)
 {
     using namespace asio;
     std::uint8_t packSize;
-    async_read(incomingStream,buffer(&packSize,1),yield);
-    std::clog<<"Odebrano paczke wielkości: >"<<unsigned(packSize)<<"<\n";
-    for(unsigned i=0;i<packSize;++i)
+    async_read(incomingStream, buffer(&packSize, 1), yield);
+    std::cout << "Odebrano paczke wielkości: >" << unsigned(packSize) << "<\n" << std::flush;
+    for (unsigned i = 0; i < packSize; ++i)
     {
         std::uint8_t idAndSize[2];
-        async_read(incomingStream,buffer(idAndSize,2),yield);
-        std::clog<<"Wiadomość "<<i<<" dla >"<<unsigned(idAndSize[0])<<"< o długości >"<<unsigned(idAndSize[1])<<"<:";
+        async_read(incomingStream, buffer(idAndSize, 2), yield);
+        std::cout << "Wiadomość [" << i << "] dla >" << unsigned(idAndSize[0]) << "< o długości >" << unsigned(idAndSize[1]) << "<:" << std::flush;
         std::vector<uint8_t> data(idAndSize[1]);
-        async_read(incomingStream,buffer(data),yield);
-        for(unsigned i=0;i<idAndSize[1];++i)
+        async_read(incomingStream, buffer(data), yield);
+        for (unsigned i = 0; i < idAndSize[1]; ++i)
         {
-            if(i%16==0)
+            if (i % 16 == 0)
             {
-                std::clog<<"\n\t";
+                std::cout << "\n  ";
             }
-            std::clog<<std::hex<<unsigned(data[i])<<' ';
+            std::cout << std::hex << std::setw(2) << std::setfill('0') << unsigned(data[i]) << ' ';
         }
-        std::clog<<"\n";
+        std::cout << "\n" << std::flush;
     }
 }
 
 int main()
 {
     asio::io_service io_service;
-    bool wantStop=false;
-    asio::spawn(io_service,[&](asio::yield_context yield) {
-        auto baseStationStream=getBaseStationStream(io_service,yield);
-        while(!wantStop)
+    bool wantStop = false;
+    asio::spawn(io_service, [&](asio::yield_context yield)
+    {
+        std::clog << "Demultiplekser uruchomiony\n" << std::flush;
+        auto baseStationStream = getBaseStationStream(io_service, yield);
+        while (!wantStop)
         {
             try
             {
-                handleNextData(baseStationStream,yield);
+                handleNextData(baseStationStream, yield);
             }
-            catch(const boost::system::system_error& e)
+            catch (const boost::system::system_error &e)
             {
-                if(e.code()==asio::error::eof)
+                if (e.code() == asio::error::eof)
                 {
+                    std::clog << "Połączenie zostało zakończone przez zdalnego hosta: " << e.what() << "\n";
                     break;
                 }
                 else
@@ -81,16 +84,15 @@ int main()
                     throw;
                 }
             }
-            catch(const std::exception& e)
+            catch (const std::exception &e)
             {
-                std::cout<<"Nie udało się udczytać pakietu:\n"<<e.what();
+                std::clog << "Nie udało się udczytać pakietu:\n" << e.what() << "\n" << std::flush;
             }
         }
     });
 
-    std::cout<<"Uruchamiam demultiplexer\n"<<std::flush;
     io_service.run();
-    std::cout<<"Demultiplexer zakończył prace.\n";
+    std::clog << "Demultiplexer zakończył prace.\n";
 
     return 0;
 
