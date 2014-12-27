@@ -1,6 +1,7 @@
 #include <iostream>
 
 #include <boost/asio/spawn.hpp>
+#include <boost/asio/signal_set.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/read.hpp>
 #include <boost/system/system_error.hpp>
@@ -61,12 +62,19 @@ void handleNextData(asio::ip::tcp::socket &incomingStream, asio::yield_context y
 int main()
 {
     asio::io_service io_service;
-    bool wantStop = false;
+    asio::signal_set signal_set(io_service, SIGINT);
+    signal_set.async_wait([&](const boost::system::error_code & error, int /*signal_number*/)
+    {
+        if (error != asio::error::operation_aborted)
+        {
+            io_service.stop();
+        }
+    });
     asio::spawn(io_service, [&](asio::yield_context yield)
     {
         std::clog << "Demultiplekser uruchomiony\n" << std::flush;
         auto baseStationStream = getBaseStationStream(io_service, yield);
-        while (!wantStop)
+        for (;;)
         {
             try
             {
@@ -77,6 +85,7 @@ int main()
                 if (e.code() == asio::error::eof)
                 {
                     std::clog << "Połączenie zostało zakończone przez zdalnego hosta: " << e.what() << "\n";
+                    signal_set.cancel();
                     break;
                 }
                 else
